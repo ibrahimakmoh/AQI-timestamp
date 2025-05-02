@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Private Time Tracker - AQI</title>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@500&family=DM+Serif+Display&display=swap" rel="stylesheet">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icon.png">
+  <meta name="theme-color" content="#1B447E">
+  <style>
+    :root {
+      --aqi-navy: #1B447E;
+      --aqi-sky: #648DBF;
+      --aqi-gold: #F3AF1C;
+      --aqi-charcoal: #4F5051;
+      --aqi-light: #F0EFEF;
+      --aqi-white: #FFFFFF;
+    }
+    body {
+      font-family: 'Barlow', sans-serif;
+      background-color: var(--aqi-white);
+      color: var(--aqi-charcoal);
+      padding: 2em;
+      max-width: 600px;
+      margin: auto;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    .logo {
+      display: block;
+      margin: 0 auto 1em;
+      width: 120px;
+    }
+    h1 {
+      font-family: 'DM Serif Display', serif;
+      font-weight: bold;
+      color: var(--aqi-navy);
+      text-align: center;
+      margin-bottom: 0.5em;
+    }
+    label, select, textarea, p {
+      font-family: 'Barlow', sans-serif;
+      font-weight: 500;
+      display: block;
+      margin-top: 1em;
+      font-size: 1em;
+    }
+    select, textarea {
+      width: 100%;
+      padding: 0.5em;
+      border: 1px solid var(--aqi-charcoal);
+      border-radius: 5px;
+      background: var(--aqi-white);
+    }
+    .btn-group button, .submit-button {
+      margin-top: 1em;
+      padding: 0.6em 1.2em;
+      font-family: 'Barlow', sans-serif;
+      font-weight: 500;
+      font-size: 1em;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    .btn-group button:hover, .submit-button:hover {
+      opacity: 0.9;
+    }
+    .clock-in {
+      background-color: var(--aqi-sky);
+      color: white;
+    }
+    .clock-out {
+      background-color: var(--aqi-navy);
+      color: white;
+    }
+    .export {
+      background-color: var(--aqi-gold);
+      color: black;
+    }
+    .submit-button {
+      background-color: var(--aqi-charcoal);
+      color: white;
+    }
+    table {
+      margin-top: 2em;
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'Barlow', sans-serif;
+      font-weight: 500;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 0.5em;
+      text-align: left;
+    }
+    tfoot td {
+      font-weight: bold;
+      background: var(--aqi-light);
+    }
+  </style>
+</head>
+<body>
+  <img src="icon.png" alt="AQI Logo" class="logo">
+  <h1>AQI Time Tracker</h1>
+
+  <fieldset>
+    <legend>Select Task(s):</legend>
+    <label><input type="checkbox" name="task" value="Teaching"> Teaching</label>
+    <label><input type="checkbox" name="task" value="Admin"> Admin</label>
+    <label><input type="checkbox" name="task" value="Planning"> Planning</label>
+    <label><input type="checkbox" name="task" value="Other"> Other</label>
+  </fieldset>
+
+  <label for="location">Location</label>
+  <select id="location">
+    <option value="Virgin Mary Mosque">Virgin Mary Mosque</option>
+    <option value="Australian Islamic Centre">Australian Islamic Centre</option>
+    <option value="Maidstone Mosque">Maidstone Mosque</option>
+    <option value="Circles of Light Centre">Circles of Light Centre</option>
+    <option value="Remote">Remote</option>
+  </select>
+
+  <label for="notes">Notes</label>
+  <textarea id="notes" rows="2"></textarea>
+
+  <div class="btn-group">
+    <button class="clock-in" onclick="prepareSubmission('IN')">Clock In</button>
+    <button class="clock-out" onclick="prepareSubmission('OUT')">Clock Out</button>
+    <button class="export" onclick="exportLogs()">Export CSV</button>
+  </div>
+
+  <div id="confirmSection" style="display:none;">
+    <p>Are you sure you want to submit this <span id="actionType"></span>?</p>
+    <button class="submit-button" onclick="submitLog()">Yes, Submit</button>
+    <button onclick="cancelSubmission()">Cancel</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Time</th><th>Type</th><th>Task</th><th>Location</th><th>Notes</th><th>Duration</th></tr>
+    </thead>
+    <tbody id="logTable"></tbody>
+    <tfoot>
+      <tr><td colspan="5">Total</td><td id="totalDuration"></td></tr>
+    </tfoot>
+  </table>
+
+<script>
+  let logs = JSON.parse(localStorage.getItem('timeLogs') || '[]');
+  let pendingType = null;
+  let lastLocation = '';
+
+  const logTable = document.getElementById('logTable');
+  const confirmSection = document.getElementById('confirmSection');
+  const actionType = document.getElementById('actionType');
+  const totalDurationCell = document.getElementById('totalDuration');
+
+  function prepareSubmission(type) {
+    pendingType = type;
+    actionType.innerText = type === 'IN' ? 'Clock In' : 'Clock Out';
+    confirmSection.style.display = 'block';
+  }
+
+  function cancelSubmission() {
+    pendingType = null;
+    confirmSection.style.display = 'none';
+  }
+
+  function getSelectedTasks() {
+    const checkboxes = document.querySelectorAll('input[name="task"]:checked');
+    return Array.from(checkboxes).map(cb => cb.value).join(", ");
+  }
+
+  function submitLog() {
+    if (!pendingType) return;
+    const time = new Date().toISOString();
+    const task = getSelectedTasks();
+    const notes = document.getElementById('notes').value;
+    let location = document.getElementById('location').value;
+
+    if (pendingType === 'IN') {
+      lastLocation = location;
+    } else if (pendingType === 'OUT') {
+      location = lastLocation;
+    }
+
+    const log = { time, type: pendingType, task, location, notes };
+    logs.push(log);
+    localStorage.setItem('timeLogs', JSON.stringify(logs));
+    displayLogs();
+    confirmSection.style.display = 'none';
+    pendingType = null;
+  }
+
+  function displayLogs() {
+    logTable.innerHTML = '';
+    let totalMinutes = 0;
+
+    for (let i = 0; i < logs.length; i++) {
+      const log = logs[i];
+      let duration = '';
+      if (log.type === 'OUT' && i > 0 && logs[i - 1].type === 'IN') {
+        const inTime = new Date(logs[i - 1].time);
+        const outTime = new Date(log.time);
+        const diffMs = outTime - inTime;
+        const diffMins = Math.round(diffMs / 60000);
+        totalMinutes += diffMins;
+        const hrs = Math.floor(diffMins / 60);
+        const mins = diffMins % 60;
+        duration = `${hrs}h ${mins}m`;
+      }
+      const formattedTime = new Date(log.time).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      const row = `<tr><td>${formattedTime}</td><td>${log.type}</td><td>${log.task}</td><td>${log.location || ''}</td><td>${log.notes}</td><td>${duration}</td></tr>`;
+      logTable.innerHTML += row;
+    }
+
+    const totalHrs = Math.floor(totalMinutes / 60);
+    const totalMins = totalMinutes % 60;
+    totalDurationCell.textContent = `${totalHrs}h ${totalMins}m`;
+  }
+
+  function exportLogs() {
+    let csv = 'Time,Type,Task,Location,Notes\n';
+    logs.forEach(log => {
+      const formattedTime = new Date(log.time).toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      csv += `${formattedTime},${log.type},${log.task},${log.location || ''},"${log.notes.replace(/"/g, '""')}"\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'time_logs.csv';
+    link.click();
+  }
+
+  displayLogs();
+</script>
+</body>
+</html>
+
