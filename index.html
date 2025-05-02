@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Private Time Tracker - AQI</title>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@500&family=DM+Serif+Display&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --aqi-navy: #1B447E;
+      --aqi-sky: #648DBF;
+      --aqi-gold: #F3AF1C;
+      --aqi-charcoal: #4F5051;
+      --aqi-light: #F0EFEF;
+      --aqi-white: #FFFFFF;
+    }
+    body {
+      font-family: 'Barlow', sans-serif;
+      background-color: var(--aqi-light);
+      color: var(--aqi-charcoal);
+      padding: 2em;
+      max-width: 600px;
+      margin: auto;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    .logo {
+      display: block;
+      margin: 0 auto 1em;
+      width: 120px;
+    }
+    h1 {
+      font-family: 'DM Serif Display', serif;
+      font-weight: bold;
+      color: var(--aqi-navy);
+      text-align: center;
+      margin-bottom: 0.5em;
+    }
+    label, select, textarea, p {
+      font-family: 'Barlow', sans-serif;
+      font-weight: 500;
+      display: block;
+      margin-top: 1em;
+      font-size: 1em;
+    }
+    select, textarea {
+      width: 100%;
+      padding: 0.5em;
+      border: 1px solid var(--aqi-charcoal);
+      border-radius: 5px;
+      background: var(--aqi-white);
+    }
+    .btn-group button, .submit-button {
+      margin-top: 1em;
+      padding: 0.6em 1.2em;
+      font-family: 'Barlow', sans-serif;
+      font-weight: 500;
+      font-size: 1em;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    .btn-group button:hover, .submit-button:hover {
+      opacity: 0.9;
+    }
+    .clock-in {
+      background-color: var(--aqi-sky);
+      color: white;
+    }
+    .clock-out {
+      background-color: var(--aqi-navy);
+      color: white;
+    }
+    .export {
+      background-color: var(--aqi-gold);
+      color: black;
+    }
+    .submit-button {
+      background-color: var(--aqi-charcoal);
+      color: white;
+    }
+    table {
+      margin-top: 2em;
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'Barlow', sans-serif;
+      font-weight: 500;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 0.5em;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <!-- Ensure your logo file is named exactly 'AQI logo.jpg' in the same folder -->
+  <img src="AQI logo.jpg" alt="AQI Logo" class="logo">
+  <h1>AQI Time Tracker</h1>
+
+  <label for="task">Task</label>
+  <select id="task">
+    <option value="Teaching">Teaching</option>
+    <option value="Admin">Admin</option>
+    <option value="Planning">Planning</option>
+    <option value="Other">Other</option>
+  </select>
+
+  <label for="notes">Notes</label>
+  <textarea id="notes" rows="2"></textarea>
+
+  <div class="btn-group">
+    <button class="clock-in" onclick="prepareSubmission('IN')">Clock In</button>
+    <button class="clock-out" onclick="prepareSubmission('OUT')">Clock Out</button>
+    <button class="export" onclick="exportLogs()">Export CSV</button>
+  </div>
+
+  <div id="confirmSection" style="display:none;">
+    <p>Are you sure you want to submit this <span id="actionType"></span>?</p>
+    <button class="submit-button" onclick="submitLog()">Yes, Submit</button>
+    <button onclick="cancelSubmission()">Cancel</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Time</th><th>Type</th><th>Task</th><th>Notes</th></tr>
+    </thead>
+    <tbody id="logTable"></tbody>
+  </table>
+
+  <script>
+    let logs = JSON.parse(localStorage.getItem('timeLogs') || '[]');
+    let pendingType = null;
+
+    const logTable = document.getElementById('logTable');
+    const confirmSection = document.getElementById('confirmSection');
+    const actionType = document.getElementById('actionType');
+
+    function prepareSubmission(type) {
+      pendingType = type;
+      actionType.innerText = type === 'IN' ? 'Clock In' : 'Clock Out';
+      confirmSection.style.display = 'block';
+    }
+
+    function cancelSubmission() {
+      pendingType = null;
+      confirmSection.style.display = 'none';
+    }
+
+    function submitLog() {
+      if (!pendingType) return;
+      const time = new Date().toLocaleString();
+      const task = document.getElementById('task').value;
+      const notes = document.getElementById('notes').value;
+      const log = { time, type: pendingType, task, notes };
+      logs.push(log);
+      localStorage.setItem('timeLogs', JSON.stringify(logs));
+      displayLogs();
+      confirmSection.style.display = 'none';
+      pendingType = null;
+    }
+
+    function displayLogs() {
+      logTable.innerHTML = '';
+      logs.forEach(log => {
+        const row = `<tr><td>${log.time}</td><td>${log.type}</td><td>${log.task}</td><td>${log.notes}</td></tr>`;
+        logTable.innerHTML += row;
+      });
+    }
+
+    function exportLogs() {
+      let csv = 'Time,Type,Task,Notes\n';
+      logs.forEach(log => {
+        csv += `${log.time},${log.type},${log.task},"${log.notes.replace(/"/g, '""')}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'time_logs.csv';
+      link.click();
+    }
+
+    displayLogs();
+  </script>
+</body>
+</html>
